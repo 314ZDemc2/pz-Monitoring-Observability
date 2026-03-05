@@ -1,0 +1,54 @@
+services:
+  zabbix-db:
+    image: postgres:16-alpine
+    container_name: zabbix-db
+    environment:
+      - POSTGRES_USER=zabbix
+      - POSTGRES_PASSWORD=zabbix_pwd
+      - POSTGRES_DB=zabbix
+    networks:
+      - zabbix-net
+
+  zabbix-server:
+    image: zabbix/zabbix-server-pgsql:ubuntu-7.0-latest
+    container_name: zabbix-server
+    dns:
+      - 8.8.8.8
+    environment:
+      - DB_SERVER_HOST=zabbix-db
+      - POSTGRES_USER=zabbix
+      - POSTGRES_PASSWORD=zabbix_pwd
+      - POSTGRES_DB=zabbix
+    networks:
+      - zabbix-net
+    depends_on:
+      - zabbix-db
+  zabbix-web:
+    image: zabbix/zabbix-web-apache-pgsql:ubuntu-7.0-latest
+    container_name: zabbix-web
+    ports:
+      - "8080:8080"
+    environment:
+      - ZBX_SERVER_HOST=zabbix-server
+      - DB_SERVER_HOST=zabbix-db
+      - POSTGRES_USER=zabbix
+      - POSTGRES_PASSWORD=zabbix_pwd
+      - POSTGRES_DB=zabbix
+    networks:
+      - zabbix-net
+
+  web1:
+    image: nginx:alpine
+    container_name: web1
+    networks:
+      - zabbix-net
+
+  web2:
+    image: nginx:alpine
+    container_name: web2
+    networks:
+      - zabbix-net
+
+networks:
+  zabbix-net:
+    driver: bridge

@@ -1,0 +1,79 @@
+services:
+  web3:
+    image: eclipse-mosquitto:latest
+    container_name: web3
+    ports: ["1883:1883"]
+    volumes: ["./mosquitto.conf:/mosquitto/config/mosquitto.conf"]
+    networks:
+      monitoring:
+        ipv4_address: 172.25.0.3
+  web1:
+    build: .
+    container_name: web1
+    environment: [NODE_NAME=web1, MQTT_BROKER=web3]
+    ports: ["8081:5000"]
+    networks:
+      monitoring:
+        ipv4_address: 172.25.0.5
+
+  web2:
+    build: .
+    container_name: web2
+    environment: [NODE_NAME=web2, MQTT_BROKER=web3]
+    ports: ["8082:5000"]
+    networks:
+      monitoring:
+        ipv4_address: 172.25.0.6
+  postman:
+    build: .
+    container_name: postman
+    command: python logger.py
+    ports: ["8083:5000"]
+    depends_on: [web3]
+    networks:
+      monitoring:
+        ipv4_address: 172.25.0.4
+  zabbix-db:
+    image: postgres:15-alpine
+    container_name: zabbix-db
+    environment:
+      - POSTGRES_USER=zabbix
+      - POSTGRES_PASSWORD=zabbix_password
+      - POSTGRES_DB=zabbix
+    networks:
+      monitoring:
+        ipv4_address: 172.25.0.7
+
+  zabbix-server:
+    dns:
+      - 8.8.8.8
+    image: zabbix/zabbix-server-pgsql:alpine-latest
+    container_name: zabbix-server
+    ports: ["10051:10051"]
+    environment:
+      - DB_SERVER_HOST=zabbix-db
+      - POSTGRES_USER=zabbix
+      - POSTGRES_PASSWORD=zabbix_password
+    depends_on: [zabbix-db]
+    networks:
+      monitoring:
+        ipv4_address: 172.25.0.8
+  zabbix-web:
+    image: zabbix/zabbix-web-nginx-pgsql:alpine-latest
+    container_name: zabbix-web
+    ports: ["8080:8080"]
+    environment:
+      - ZBX_SERVER_HOST=zabbix-server
+      - DB_SERVER_HOST=zabbix-db
+      - POSTGRES_USER=zabbix
+      - POSTGRES_PASSWORD=zabbix_password
+    networks:
+      monitoring:
+        ipv4_address: 172.25.0.9
+
+networks:
+  monitoring:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/24
